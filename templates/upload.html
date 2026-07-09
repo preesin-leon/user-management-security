@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="card">
+        <h2 class="card-title">上传头像</h2>
+        <p class="card-text">请选择一张图片文件作为您的头像（支持 jpg/png/gif/bmp/webp 格式）。</p>
+
+        <form method="POST" action="/upload" enctype="multipart/form-data" class="upload-form">
+            <div class="form-group">
+                <label for="file">选择文件</label>
+                <input type="file" id="file" name="file" class="file-input" accept="image/*" required>
+            </div>
+            <button type="submit" class="btn btn-primary">上传</button>
+        </form>
+
+        {% if error %}
+            <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+
+        {% if file_url %}
+            <div class="upload-preview">
+                <h3 class="card-subtitle">上传成功</h3>
+                <div class="preview-image">
+                    <img src="{{ file_url }}" alt="头像预览">
+                </div>
+                <p class="file-link">
+                    文件名：<strong>{{ filename }}</strong>
+                </p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
