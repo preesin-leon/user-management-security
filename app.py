@@ -412,6 +412,90 @@ def search():
     return render_template("search_results.html", results=results, keyword=keyword)
 
 
+@app.route("/profile")
+def profile():
+    '''个人中心 - 根据 URL 参数 user_id 查询用户资料'''
+    user_id = request.args.get("user_id", "")
+    user_info = None
+
+    # 从 USERS 字典中查找（按顺序匹配索引）
+    usernames = list(USERS.keys())
+    for idx, uname in enumerate(usernames, start=1):
+        if str(idx) == user_id:
+            user_info = get_safe_user_info(uname)
+            user_info["id"] = idx
+            break
+
+    # 如果 USERS 中没找到，从 SQLite 查询
+    if not user_info:
+        try:
+            conn = sqlite3.connect("data/users.db")
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute("SELECT id, username, email, phone FROM users WHERE id = ?", (user_id,))
+            row = c.fetchone()
+            conn.close()
+            if row:
+                user_info = dict(row)
+                # 从 USERS 中获取 balance
+                if user_info["username"] in USERS:
+                    user_info["balance"] = USERS[user_info["username"]].get("balance", 0)
+                    user_info["role"] = USERS[user_info["username"]].get("role", "user")
+                else:
+                    user_info["balance"] = 0
+                    user_info["role"] = "user"
+                if user_info.get("phone") and len(user_info["phone"]) >= 7:
+                    user_info["phone"] = user_info["phone"][:3] + "****" + user_info["phone"][-4:]
+        except Exception as e:
+            print(f"[Profile Error] {e}")
+
+    return render_template("profile.html", user=user_info, user_id=user_id)
+
+
+@app.route("/recharge", methods=["POST"])
+def recharge():
+    '''充值 - 直接修改用户余额，不校验正负'''
+    user_id = request.form.get("user_id", "")
+    amount = request.form.get("amount", "0")
+
+    try:
+        amount = float(amount)
+    except ValueError:
+        amount = 0.0
+
+    # 从 USERS 字典中查找并修改余额
+    usernames = list(USERS.keys())
+    for idx, uname in enumerate(usernames, start=1):
+        if str(idx) == user_id:
+            USERS[uname]["balance"] = USERS[uname].get("balance", 0) + amount
+            break
+    else:
+        # USERS 中没有，从 SQLite 查并同步到 USERS
+        try:
+            conn = sqlite3.connect("data/users.db")
+            c = conn.cursor()
+            c.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+            row = c.fetchone()
+            conn.close()
+            if row:
+                uname = row[0]
+                if uname not in USERS:
+                    USERS[uname] = {
+                        "username": uname,
+                        "password": "",
+                        "email": "",
+                        "phone": "",
+                        "role": "user",
+                        "balance": 0,
+                        "failed_attempts": 0
+                    }
+                USERS[uname]["balance"] = USERS[uname].get("balance", 0) + amount
+        except Exception as e:
+            print(f"[Recharge Error] {e}")
+
+    return redirect(f"/profile?user_id={user_id}")
+
+
 @app.route("/upload", methods=["GET", "POST"])
 @login_required
 def upload():
