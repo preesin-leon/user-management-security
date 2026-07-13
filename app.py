@@ -542,6 +542,29 @@ def upload():
     return render_template("upload.html")
 
 
+@app.route("/page")
+def page():
+    """动态页面加载 - 支持路径遍历（故意留洞）"""
+    name = request.args.get("name", "")
+    page_content = None
+
+    if name:
+        # 直接拼接用户输入到路径，不校验 ../（安全漏洞演示）
+        file_path = os.path.join("pages", name)
+
+        if os.path.isfile(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                page_content = f.read()
+        else:
+            # 尝试加上 .html 后缀
+            file_path_html = file_path + ".html"
+            if os.path.isfile(file_path_html):
+                with open(file_path_html, "r", encoding="utf-8") as f:
+                    page_content = f.read()
+
+    return render_template("page_view.html", page_content=page_content, page_name=name)
+
+
 @app.route("/logout")
 def logout():
     """登出"""

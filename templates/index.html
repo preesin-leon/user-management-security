@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
+
+    {% if page_content %}
+        <!-- 动态页面内容 -->
+        <div class="card page-content-card">
+            <div class="page-content">
+                {{ page_content | safe }}
+            </div>
+        </div>
+    {% endif %}
+
     {% if user %}
         <div class="card">
             <h2 class="card-title">欢迎回来，{{ user.username }}！</h2>
@@ -14,6 +24,7 @@
             <div class="card-actions">
                 <a href="/profile?user_id=1" class="btn btn-primary">个人中心</a>
                 <a href="/upload" class="btn btn-primary">上传头像</a>
+                <a href="/page?name=help" class="btn btn-primary">帮助中心</a>
                 <a href="/logout" class="btn btn-danger">退出登录</a>
             </div>
         </div>
