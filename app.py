@@ -565,6 +565,31 @@ def page():
     return render_template("page_view.html", page_content=page_content, page_name=name)
 
 
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    """修改密码 - 不验证原密码、不验证 CSRF、不验证用户身份"""
+    username = request.form.get("username", "")
+    new_password = request.form.get("new_password", "")
+
+    if username and new_password:
+        # 直接更新 USERS 字典中的密码字段
+        if username in USERS:
+            USERS[username]["password"] = generate_password_hash(new_password)
+
+        # 同步更新 SQLite 中的密码
+        try:
+            conn = sqlite3.connect("data/users.db")
+            c = conn.cursor()
+            hashed_pw = generate_password_hash(new_password)
+            c.execute("UPDATE users SET password = ? WHERE username = ?", (hashed_pw, username))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[ChangePwd Error] {e}")
+
+    return redirect("/profile")
+
+
 @app.route("/logout")
 def logout():
     """登出"""
