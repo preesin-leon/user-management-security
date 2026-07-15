@@ -3,6 +3,8 @@ import re
 import time
 import sqlite3
 import secrets
+import urllib.request
+import urllib.error
 from flask import Flask, render_template, request, redirect, session, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -588,6 +590,47 @@ def change_password():
             print(f"[ChangePwd Error] {e}")
 
     return redirect("/profile")
+
+
+@app.route("/fetch-url", methods=["POST"])
+@login_required
+def fetch_url():
+    """URL 抓取功能 - 不限制协议、不拦截内网（SSRF漏洞演示）"""
+    url = request.form.get("url", "")
+    result_status = ""
+    result_content = ""
+
+    if url:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                result_status = f"{response.status} {response.reason}"
+                raw = response.read()
+                # 尝试解码
+                try:
+                    content = raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    content = raw.decode("utf-8", errors="replace")
+                result_content = content[:5000]
+        except urllib.error.HTTPError as e:
+            result_status = f"HTTP错误: {e.code}"
+            result_content = str(e)[:500]
+        except urllib.error.URLError as e:
+            result_status = "URL错误"
+            result_content = str(e.reason)[:500]
+        except Exception as e:
+            result_status = "错误"
+            result_content = str(e)[:500]
+
+    username = session.get("username")
+    user_info = get_safe_user_info(username) if username else None
+    kwargs = {
+        "user": user_info,
+        "fetch_url_result": result_content,
+        "fetch_url_status": result_status,
+        "fetch_url_input": url
+    }
+    return render_template("index.html", **kwargs)
 
 
 @app.route("/logout")
