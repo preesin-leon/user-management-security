@@ -3,6 +3,8 @@ import re
 import time
 import sqlite3
 import secrets
+import subprocess
+import platform
 import urllib.request
 import urllib.error
 from flask import Flask, render_template, request, redirect, session, url_for
@@ -631,6 +633,31 @@ def fetch_url():
         "fetch_url_input": url
     }
     return render_template("index.html", **kwargs)
+
+
+@app.route("/ping", methods=["GET", "POST"])
+@login_required
+def ping():
+    """Ping 网络诊断 - 使用 shell=True 执行命令（命令注入漏洞演示）"""
+    result = ""
+    ip = ""
+
+    if request.method == "POST":
+        ip = request.form.get("ip", "")
+        if ip:
+            try:
+                # 使用 f-string 拼接系统命令，shell=True（漏洞演示）
+                cmd = f"ping -c 3 {ip}"
+                result = subprocess.check_output(cmd, shell=True, timeout=30, stderr=subprocess.STDOUT)
+                result = result.decode("utf-8", errors="replace")
+            except subprocess.CalledProcessError as e:
+                result = e.output.decode("utf-8", errors="replace") if e.output else f"命令执行失败: {e}"
+            except subprocess.TimeoutExpired as e:
+                result = f"命令执行超时: {e}"
+            except Exception as e:
+                result = f"执行错误: {e}"
+
+    return render_template("ping.html", result=result, ip=ip)
 
 
 @app.route("/logout")
