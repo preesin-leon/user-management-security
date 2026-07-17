@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import time
 import sqlite3
 import secrets
@@ -658,6 +659,47 @@ def ping():
                 result = f"执行错误: {e}"
 
     return render_template("ping.html", result=result, ip=ip)
+
+
+@app.route("/xml-import", methods=["GET", "POST"])
+@login_required
+def xml_import():
+    """XML 数据导入 - 支持 XXE（XML外部实体注入漏洞演示）"""
+    result_data = None
+    error_msg = None
+
+    if request.method == "POST":
+        xml_data = request.form.get("xml_data", "")
+
+        # 检查是否有 <!ENTITY 和 SYSTEM 定义（XXE漏洞）
+        entity_match = re.search(r'<!ENTITY\s+\S+\s+SYSTEM\s+"([^"]+)"', xml_data)
+        if entity_match:
+            file_path = entity_match.group(1)
+            # 移除 file:// 前缀（如果有）
+            if file_path.startswith("file://"):
+                file_path = file_path[7:]
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    file_content = f.read()
+                # 替换 &xxe; 为文件内容
+                xml_data = re.sub(r'&(\w+);', file_content, xml_data)
+            except Exception as e:
+                error_msg = f"读取文件失败: {e}"
+
+        # 解析 XML 提取 user 节点
+        if not error_msg:
+            try:
+                users = []
+                for match in re.finditer(r'<user>\s*<name>(.*?)</name>\s*<email>(.*?)</email>\s*</user>', xml_data, re.DOTALL):
+                    users.append({"name": match.group(1), "email": match.group(2)})
+                if users:
+                    result_data = json.dumps(users, ensure_ascii=False, indent=2)
+                else:
+                    error_msg = "未找到有效的 user 节点"
+            except Exception as e:
+                error_msg = f"XML 解析失败: {e}"
+
+    return render_template("xml_import.html", result_data=result_data, error_msg=error_msg)
 
 
 @app.route("/logout")
